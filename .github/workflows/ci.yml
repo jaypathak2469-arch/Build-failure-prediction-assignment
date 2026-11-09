@@ -1,0 +1,35 @@
+name: CI - build failure prediction
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 1"   # retrain every Monday 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  test-and-train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Lint
+        run: flake8 src tests --max-line-length=110
+      - name: Unit tests
+        run: pytest -q
+      - name: Train and evaluate
+        run: python -m src.train
+      - name: Show metrics in job summary
+        run: |
+          echo '### Model metrics' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat outputs/metrics.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: model-results
+          path: outputs/
